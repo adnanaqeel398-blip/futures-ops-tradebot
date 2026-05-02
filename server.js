@@ -20,6 +20,14 @@ const PORT = Number(process.env.PORT || 8787);
 // Binance bases
 const FUT_BASE = process.env.BINANCE_BASE_FUTURES || process.env.BINANCE_FUTURES_BASE || "https://fapi.binance.com";
 const SPOT_BASE = process.env.BINANCE_BASE_SPOT || process.env.BINANCE_SPOT_BASE || "https://api.binance.com";
+const DATA_API_BASE = "https://data-api.binance.vision";
+
+// Mapping: futures API paths → spot equivalents on data-api.binance.vision
+const FUTURES_TO_SPOT_PATH = {
+  "/fapi/v1/klines": "/api/v3/klines",
+  "/fapi/v1/exchangeInfo": "/api/v3/exchangeInfo",
+  "/fapi/v1/ticker/price": "/api/v3/ticker/price",
+};
 
 // Secrets
 const MASTER_KEY = process.env.MASTER_KEY || "";
@@ -308,16 +316,30 @@ async function bFetch(
 }
 
 async function pubFetch(base, pathname, query = {}) {
-  const url = new URL(base + pathname);
-  for (const [k, v] of Object.entries(query || {})) {
-    if (v === undefined || v === null || v === "") continue;
-    url.searchParams.set(k, String(v));
-  }
-  const res = await fetch(url.toString());
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok)
-    throw Object.assign(new Error("Public request failed"), { status: res.status, binance: json });
-  return json;
+  const buildUrl = (b, p) => {
+    const url = new URL(b + p);
+    for (const [k, v] of Object.entries(query || {})) {
+      if (v === undefined || v === null || v === "") continue;
+      url.searchParams.set(k, String(v));
+    }
+    return url.toString();
+  };
+
+  // Try primary endpoint first
+  try {
+    const res = await fetch(buildUrl(base, pathname));
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) return json;
+  } catch (_) { /* primary failed, try fallback */ }
+
+  // Fallback: use data-api.binance.vision with spot-equivalent path
+  const fallbackPath = FUTURES_TO_SPOT_PATH[pathname] || pathname.replace(/^\/fapi\/v1\//, "/api/v3/");
+  const fallbackUrl = buildUrl(DATA_API_BASE, fallbackPath);
+  const res2 = await fetch(fallbackUrl);
+  const json2 = await res2.json().catch(() => ({}));
+  if (!res2.ok)
+    throw Object.assign(new Error("Public request failed (primary + fallback)"), { status: res2.status, binance: json2 });
+  return json2;
 }
 
 // ===== Binance order execution (standalone, for copy trading) =====
