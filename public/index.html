@@ -624,6 +624,57 @@
         </div>
       </section>
 
+      <!-- LIVE OPEN TRADES -->
+      <section class="card section" style="margin-bottom:18px;">
+        <div class="section-header">
+          <div>
+            <h2>Live Open Trades</h2>
+            <p>Currently running trades with real-time P&L from Binance.</p>
+          </div>
+          <button class="btn-soft" onclick="loadLiveTrades()">Refresh</button>
+        </div>
+        <div id="liveTradesContainer">
+          <div class="empty-state">Loading live trades...</div>
+        </div>
+      </section>
+
+      <!-- MASTER ACCOUNT & CLIENT MANAGEMENT -->
+      <section class="card section" style="margin-bottom:18px;">
+        <div class="section-header">
+          <div>
+            <h2>Master Account & Clients</h2>
+            <p>Commission tracking: First 2 trades per client FREE, then 30% profit commission to master.</p>
+          </div>
+          <button class="btn-soft" onclick="loadMasterSummary()">Refresh</button>
+        </div>
+
+        <div class="bot-strip" id="masterSummaryContainer">
+          <div class="bot-box">
+            <div class="bot-head">
+              <div class="bot-name">Master Wallet</div>
+              <span class="pill running" id="masterKeyPill">CHECKING</span>
+            </div>
+            <div style="padding:8px 0;">
+              <div style="display:flex;gap:14px;flex-wrap:wrap;">
+                <div class="meta-box"><small>Balance</small><strong id="masterBalance">$0.00</strong></div>
+                <div class="meta-box"><small>Commission</small><strong id="masterCommission">$0.00</strong></div>
+                <div class="meta-box"><small>Total Trades</small><strong id="masterTotalTrades">0</strong></div>
+                <div class="meta-box"><small>Free Trades</small><strong id="masterFreeTrades">0</strong></div>
+                <div class="meta-box"><small>Paid Trades</small><strong id="masterPaidTrades">0</strong></div>
+                <div class="meta-box"><small>Clients</small><strong id="masterClientCount">0</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;">
+          <h3 style="margin:0 0 10px;font-size:15px;color:var(--cyan);">Client P&L Breakdown</h3>
+          <div id="clientListContainer">
+            <div class="empty-state">No clients added yet.</div>
+          </div>
+        </div>
+      </section>
+
       <section class="main-grid">
         <div class="card section" id="signals">
           <div class="section-header">
@@ -1137,6 +1188,10 @@
       const closed = tradesData.closed;
 
       setCounts({ pending, approved, running, closed });
+
+      // Also refresh live trades and master summary
+      loadLiveTrades().catch(() => {});
+      loadMasterSummary().catch(() => {});
     }
 
     function resetAutoRefresh() {
@@ -1243,12 +1298,142 @@
       }
     }
 
+    // ===== LIVE OPEN TRADES =====
+    async function loadLiveTrades() {
+      try {
+        const data = await safeFetch('/api/trades');
+        const trades = Array.isArray(data) ? data : (data.trades || []);
+        const running = trades.filter(t => (t.status || 'running') !== 'closed');
+        const closed = trades.filter(t => (t.status || '') === 'closed');
+        renderLiveTrades(running, closed);
+      } catch (err) {
+        document.getElementById('liveTradesContainer').innerHTML = `<div class="empty-state">Failed to load trades: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function renderLiveTrades(running, closed) {
+      const wrap = document.getElementById('liveTradesContainer');
+      if (!running.length && !closed.length) {
+        wrap.innerHTML = `<div class="empty-state">No trades yet. Generate signals and execute them to see trades here.</div>`;
+        return;
+      }
+
+      let html = '';
+
+      if (running.length) {
+        html += `<div style="margin-bottom:8px;font-size:13px;color:var(--green);font-weight:600;">RUNNING (${running.length})</div>`;
+        html += running.map(t => renderTradeCard(t, true)).join('');
+      }
+
+      if (closed.length) {
+        html += `<div style="margin:12px 0 8px;font-size:13px;color:var(--muted);font-weight:600;">RECENTLY CLOSED (${Math.min(closed.length, 10)})</div>`;
+        html += closed.slice(-10).reverse().map(t => renderTradeCard(t, false)).join('');
+      }
+
+      wrap.innerHTML = html;
+    }
+
+    function renderTradeCard(trade, isRunning) {
+      const pnl = Number(trade.pnl ?? 0);
+      const pnlText = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
+      const pnlClass = pnl >= 0 ? 'green' : 'red';
+      const score = Math.max(5, Math.min(100, Number(trade.monitorScore ?? 50)));
+
+      return `
+        <div class="item" style="border-left:3px solid var(--${isRunning ? 'green' : 'muted'});">
+          <div class="item-top">
+            <div class="pair">${escapeHtml(trade.pair || '-')}</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <span class="pill ${(trade.side || '').toUpperCase() === 'BUY' ? 'buy' : 'sell'}">${escapeHtml((trade.side || '-').toUpperCase())}</span>
+              <span class="pill ${isRunning ? 'running' : 'closed'}">${isRunning ? 'RUNNING' : 'CLOSED'}</span>
+              <span class="pill" style="background:rgba(91,140,255,0.15);color:var(--blue);">${trade.leverage || 10}x</span>
+            </div>
+          </div>
+          <div class="meta">
+            <div class="meta-box"><small>Entry</small><strong>${escapeHtml(String(trade.entry ?? '-'))}</strong></div>
+            <div class="meta-box"><small>Size</small><strong>$${escapeHtml(String(trade.sizeUsd ?? trade.size_usd ?? '-'))}</strong></div>
+            <div class="meta-box"><small>P&L</small><strong class="${pnlClass}">${pnlText}</strong></div>
+            <div class="meta-box"><small>SL</small><strong>${escapeHtml(String(trade.stopLoss ?? '-'))}</strong></div>
+            <div class="meta-box"><small>TP</small><strong>${escapeHtml(String(trade.takeProfit ?? '-'))}</strong></div>
+            <div class="meta-box"><small>Opened</small><strong>${new Date(trade.openedAt || trade.opened_at || '').toLocaleString() || '-'}</strong></div>
+          </div>
+          ${isRunning ? `
+            <div class="monitor-bar"><div class="monitor-fill" style="width:${score}%"></div></div>
+            <div class="actions" style="margin-top:8px;">
+              <button class="btn-warning mini" onclick="monitorTrade('${escapeAttr(trade.id)}')">Monitor</button>
+              <button class="btn-danger mini" onclick="closeTrade('${escapeAttr(trade.id)}')">Close</button>
+            </div>
+          ` : `
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;">Closed: ${new Date(trade.closedAt || '').toLocaleString() || '-'} | ${trade.closeReason || 'manual'}</div>
+          `}
+        </div>
+      `;
+    }
+
+    // ===== MASTER ACCOUNT & CLIENT MANAGEMENT =====
+    async function loadMasterSummary() {
+      try {
+        const data = await safeFetch('/api/master/summary');
+        const m = data.master || {};
+
+        document.getElementById('masterKeyPill').textContent = m.binanceKeyConfigured ? 'CONFIGURED' : 'NO KEY';
+        document.getElementById('masterKeyPill').className = m.binanceKeyConfigured ? 'pill running' : 'pill offline';
+        document.getElementById('masterBalance').textContent = '$' + (m.balance || 0).toFixed(2);
+        document.getElementById('masterCommission').textContent = '$' + (m.totalMasterShare || 0).toFixed(4);
+        document.getElementById('masterTotalTrades').textContent = m.totalTrades || 0;
+        document.getElementById('masterFreeTrades').textContent = m.totalFreeTrades || 0;
+        document.getElementById('masterPaidTrades').textContent = m.totalPaidTrades || 0;
+        document.getElementById('masterClientCount').textContent = m.clientCount || 0;
+
+        renderClientList(data.clients || []);
+      } catch (err) {
+        logAction(`Load master summary failed: ${err.message}`);
+      }
+    }
+
+    function renderClientList(clients) {
+      const wrap = document.getElementById('clientListContainer');
+      if (!clients.length) {
+        wrap.innerHTML = `<div class="empty-state">No clients added. Use the API to add copy trading clients.</div>`;
+        return;
+      }
+
+      wrap.innerHTML = clients.map(c => {
+        const netPnl = (c.profit || 0) - (c.loss || 0);
+        const pnlText = netPnl >= 0 ? `+$${netPnl.toFixed(4)}` : `-$${Math.abs(netPnl).toFixed(4)}`;
+        const pnlClass = netPnl >= 0 ? 'green' : 'red';
+        const freeLeft = c.freeTradesRemaining || 0;
+
+        return `
+          <div class="item" style="border-left:3px solid var(--${c.enabled ? 'cyan' : 'muted'});">
+            <div class="item-top">
+              <div class="pair">${escapeHtml(c.label)}</div>
+              <div style="display:flex;gap:6px;">
+                <span class="pill ${c.enabled ? 'running' : 'offline'}">${c.enabled ? 'ACTIVE' : 'DISABLED'}</span>
+                <span class="pill" style="background:rgba(91,140,255,0.15);color:var(--blue);">${c.tradeCount} trades</span>
+                ${freeLeft > 0 ? `<span class="pill" style="background:rgba(25,195,125,0.15);color:var(--green);">${freeLeft} free left</span>` : `<span class="pill" style="background:rgba(247,184,75,0.15);color:var(--yellow);">30% commission</span>`}
+              </div>
+            </div>
+            <div class="meta">
+              <div class="meta-box"><small>Balance</small><strong>$${(c.balance || 0).toFixed(2)}</strong></div>
+              <div class="meta-box"><small>Profit</small><strong class="green">$${(c.profit || 0).toFixed(4)}</strong></div>
+              <div class="meta-box"><small>Loss</small><strong class="red">$${(c.loss || 0).toFixed(4)}</strong></div>
+              <div class="meta-box"><small>Net P&L</small><strong class="${pnlClass}">${pnlText}</strong></div>
+              <div class="meta-box"><small>Commission Paid</small><strong class="yellow">$${(c.masterShare || 0).toFixed(4)}</strong></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
     async function init() {
       updateApiBaseText();
       resetAutoRefresh();
       await refreshAll();
       await loadAutoStatus();
-      logAction('Initial localhost sync completed');
+      await loadLiveTrades();
+      await loadMasterSummary();
+      logAction('Dashboard initialized — all data loaded');
     }
 
     init();

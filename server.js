@@ -58,6 +58,14 @@ const DEFAULT_LEVERAGE = Number(process.env.DEFAULT_LEVERAGE || 10);
 // Cooldown
 const ORDER_COOLDOWN_MS = Number(process.env.ORDER_COOLDOWN_MS || 8000);
 
+// Paid model: first N trades per client are free, then 30% commission on profits
+const FREE_TRADES_PER_CLIENT = Number(process.env.FREE_TRADES_PER_CLIENT || 2);
+const MASTER_COMMISSION_PCT = 0.3; // 30%
+
+// Master Binance account (for receiving commissions)
+const MASTER_BINANCE_API_KEY = process.env.BINANCE_API_KEY || "";
+const MASTER_BINANCE_SECRET = process.env.BINANCE_SECRET_KEY || "";
+
 // ===== DB =====
 const DB_PATH = path.join(__dirname, "data", "db.json");
 fs.mkdirSync(path.join(__dirname, "data"), { recursive: true });
@@ -535,9 +543,34 @@ app.get("/api/clients", optionalAuth, (_req, res) => {
     profit: c.profit,
     loss: c.loss,
     masterShare: c.masterShare,
+    tradeCount: c.tradeCount || 0,
+    freeTrades: FREE_TRADES_PER_CLIENT,
+    freeTradesRemaining: Math.max(0, FREE_TRADES_PER_CLIENT - (c.tradeCount || 0)),
+    trades: (c.trades || []).slice(-20),
     enabled: c.enabled,
+    createdAt: c.createdAt,
   }));
   res.json({ ok: true, clients });
+});
+
+// GET per-client trade details
+app.get("/api/clients/:id/trades", optionalAuth, (req, res) => {
+  const client = DB.clients.find((c) => c.id === req.params.id);
+  if (!client) return res.status(404).json({ error: "client_not_found" });
+
+  const clientTrades = DB.trades.filter((t) => t.clientId === client.id || (t.copyResults || []).some(r => r.clientId === client.id));
+  res.json({
+    ok: true,
+    clientId: client.id,
+    label: client.label,
+    tradeCount: client.tradeCount || 0,
+    freeTrades: FREE_TRADES_PER_CLIENT,
+    freeTradesRemaining: Math.max(0, FREE_TRADES_PER_CLIENT - (client.tradeCount || 0)),
+    profit: client.profit || 0,
+    loss: client.loss || 0,
+    masterShare: client.masterShare || 0,
+    trades: clientTrades,
+  });
 });
 
 app.post("/api/clients/add", optionalAuth, (req, res) => {
@@ -553,7 +586,10 @@ app.post("/api/clients/add", optionalAuth, (req, res) => {
     profit: 0,
     loss: 0,
     masterShare: 0,
+    tradeCount: 0,
+    trades: [],
     enabled: true,
+    createdAt: new Date().toISOString(),
   };
 
   DB.clients.push(client);
@@ -600,7 +636,11 @@ app.get("/api/futures/symbols", async (_req, res) => {
   try {
     const info = await pubFetch(FUT_BASE, "/fapi/v1/exchangeInfo", {});
     const symbols = (info.symbols || [])
-      .filter((s) => s.status === "TRADING" && s.contractType === "PERPETUAL")
+      .filter((s) => {
+        // Works with both futures (contractType=PERPETUAL) and spot fallback (status=TRADING)
+        if (s.contractType) return s.status === "TRADING" && s.contractType === "PERPETUAL";
+        return s.status === "TRADING" && SPOT_DOLLAR_QUOTES.has(s.quoteAsset);
+      })
       .map((s) => ({ symbol: s.symbol, baseAsset: s.baseAsset, quoteAsset: s.quoteAsset }));
     res.json({ ok: true, symbols });
   } catch (e) {
@@ -1404,14 +1444,9 @@ app.post("/api/trades/:id/close", optionalAuth, async (req, res) => {
 
 // ===========================
 // PnL DISTRIBUTION (copy trading profit sharing)
+// First 2 trades per client are FREE, after that 30% of profit goes to master
 // ===========================
 function distributePnL(trade) {
-  // Find client trades associated with this trade
-  const clientTrades = DB.trades.filter(
-    (t) => t.parentTradeId === trade.id && !t.pnlDistributed
-  );
-
-  // Also distribute based on signal
   const pnl = trade.pnl || 0;
   if (pnl === 0) return;
 
@@ -1423,19 +1458,58 @@ function distributePnL(trade) {
     if (totalClientBalance === 0) continue;
 
     const clientPnl = pnl * (client.balance / totalClientBalance);
+    client.tradeCount = (client.tradeCount || 0) + 1;
+    const isFree = client.tradeCount <= FREE_TRADES_PER_CLIENT;
+
+    const tradeRecord = {
+      tradeId: trade.id,
+      pair: trade.pair || trade.symbol,
+      side: trade.side,
+      pnl: +clientPnl.toFixed(4),
+      isFree,
+      commission: 0,
+      closedAt: new Date().toISOString(),
+    };
 
     if (clientPnl > 0) {
-      const masterCut = clientPnl * 0.3; // 30% profit share to master
       client.profit = (client.profit || 0) + clientPnl;
-      client.masterShare = (client.masterShare || 0) + masterCut;
-      DB.master.balance = (DB.master.balance || 0) + masterCut;
+
+      if (!isFree) {
+        // 30% commission on profit goes to master
+        const masterCut = clientPnl * MASTER_COMMISSION_PCT;
+        tradeRecord.commission = +masterCut.toFixed(4);
+        client.masterShare = (client.masterShare || 0) + masterCut;
+        DB.master.balance = (DB.master.balance || 0) + masterCut;
+        addLog("info", `Commission: $${masterCut.toFixed(4)} from ${client.label} (trade #${client.tradeCount})`);
+
+        // Transfer commission to master Binance account (async, non-blocking)
+        transferToMasterBinance(masterCut, client.label, trade.pair).catch(() => {});
+      } else {
+        addLog("info", `Free trade #${client.tradeCount} for ${client.label} — no commission`);
+      }
     } else {
       client.loss = (client.loss || 0) + Math.abs(clientPnl);
     }
+
+    client.trades = client.trades || [];
+    client.trades.push(tradeRecord);
   }
 
   trade.pnlDistributed = true;
   saveDB(DB);
+}
+
+// Transfer accumulated commission to master Binance wallet via internal transfer
+async function transferToMasterBinance(amount, clientLabel, pair) {
+  if (!MASTER_BINANCE_API_KEY || !MASTER_BINANCE_SECRET || amount <= 0) return;
+  try {
+    addLog("info", `Master commission hold: $${amount.toFixed(4)} from ${clientLabel} on ${pair} — held in master wallet`);
+    // The commission is accumulated in DB.master.balance
+    // Actual transfer to Binance would require a withdrawal API call
+    // For now, the balance is tracked and can be withdrawn manually
+  } catch (e) {
+    addLog("warn", `Master transfer note: ${e.message}`);
+  }
 }
 
 // ===========================
@@ -1794,17 +1868,55 @@ app.get("/api/master/summary", optionalAuth, (_req, res) => {
   const totalProfit = DB.clients.reduce((sum, c) => sum + (c.profit || 0), 0);
   const totalLoss = DB.clients.reduce((sum, c) => sum + (c.loss || 0), 0);
   const totalMasterShare = DB.clients.reduce((sum, c) => sum + (c.masterShare || 0), 0);
+  const totalTrades = DB.clients.reduce((sum, c) => sum + (c.tradeCount || 0), 0);
+  const totalFreeTrades = DB.clients.reduce((sum, c) => sum + Math.min(c.tradeCount || 0, FREE_TRADES_PER_CLIENT), 0);
+  const totalPaidTrades = totalTrades - totalFreeTrades;
+
+  const runningTrades = DB.trades.filter((t) => t.status === "running");
+  const closedTrades = DB.trades.filter((t) => t.status === "closed");
 
   res.json({
     ok: true,
     master: {
       balance: DB.master.balance,
-      totalClientProfit: totalProfit,
-      totalClientLoss: totalLoss,
-      totalMasterShare,
+      binanceKeyConfigured: !!MASTER_BINANCE_API_KEY,
+      totalClientProfit: +totalProfit.toFixed(4),
+      totalClientLoss: +totalLoss.toFixed(4),
+      totalMasterShare: +totalMasterShare.toFixed(4),
+      totalTrades,
+      totalFreeTrades,
+      totalPaidTrades,
+      commissionRate: MASTER_COMMISSION_PCT * 100 + "%",
+      freeTradesPerClient: FREE_TRADES_PER_CLIENT,
       clientCount: DB.clients.length,
       enabledClients: DB.clients.filter((c) => c.enabled).length,
+      runningTradesCount: runningTrades.length,
+      closedTradesCount: closedTrades.length,
     },
+    runningTrades: runningTrades.map((t) => ({
+      id: t.id,
+      pair: t.pair || t.symbol,
+      side: t.side,
+      entry: t.entry,
+      sizeUsd: t.sizeUsd || t.notional || 0,
+      pnl: t.pnl || 0,
+      stopLoss: t.stopLoss,
+      takeProfit: t.takeProfit,
+      leverage: t.leverage,
+      status: t.status,
+      openedAt: t.openedAt || t.createdAt,
+    })),
+    clients: DB.clients.map((c) => ({
+      id: c.id,
+      label: c.label,
+      balance: c.balance,
+      profit: +(c.profit || 0).toFixed(4),
+      loss: +(c.loss || 0).toFixed(4),
+      masterShare: +(c.masterShare || 0).toFixed(4),
+      tradeCount: c.tradeCount || 0,
+      freeTradesRemaining: Math.max(0, FREE_TRADES_PER_CLIENT - (c.tradeCount || 0)),
+      enabled: c.enabled,
+    })),
   });
 });
 
@@ -1890,20 +2002,9 @@ app.post("/api/pnl/close", optionalAuth, (req, res) => {
     t.closedAt = new Date().toISOString();
     t.closeReason = "pnl_close";
 
-    // Distribute to copy trading clients
+    // Distribute PnL to copy trading clients (with free trade / commission logic)
     if (pnl !== 0) {
-      for (const client of DB.clients) {
-        if (!client.enabled) continue;
-        const clientPnl = pnl * ((client.balance || 0) / Math.max(1, DB.clients.reduce((s, c) => s + (c.balance || 0), 0)));
-        if (clientPnl > 0) {
-          const masterCut = clientPnl * 0.3;
-          client.profit = (client.profit || 0) + clientPnl;
-          client.masterShare = (client.masterShare || 0) + masterCut;
-          DB.master.balance = (DB.master.balance || 0) + masterCut;
-        } else {
-          client.loss = (client.loss || 0) + Math.abs(clientPnl);
-        }
-      }
+      distributePnL(t);
     }
   }
 
