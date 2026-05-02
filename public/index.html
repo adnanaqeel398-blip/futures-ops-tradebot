@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alpha Pro Trader — FuturesOps Dashboard</title>
+  <style>
+    :root{
+      --bg:#08101f;
+      --bg2:#0d1630;
+      --panel:#111b38;
+      --panel2:#162347;
+      --line:rgba(255,255,255,0.08);
+      --text:#edf2ff;
+      --muted:#9aa7d7;
+      --blue:#5b8cff;
+      --cyan:#22d3ee;
+      --green:#19c37d;
+      --red:#ff5f73;
+      --yellow:#f7b84b;
+      --purple:#9b6bff;
+      --radius:18px;
+      --shadow:0 14px 40px rgba(0,0,0,.35);
+    }
+
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--text);
+      background:linear-gradient(180deg,#060b16 0%, #0a1224 100%);
+    }
+
+    .app{
+      min-height:100vh;
+      display:grid;
+      grid-template-columns:260px 1fr;
+    }
+
+    .sidebar{
+      background:rgba(8,12,24,.96);
+      border-right:1px solid var(--line);
+      padding:22px 16px;
+      position:sticky;
+      top:0;
+      height:100vh;
+    }
+
+    .brand{
+      font-size:22px;
+      font-weight:900;
+      margin-bottom:18px;
+      letter-spacing:.2px;
+    }
+    .brand span{color:var(--cyan)}
+
+    .nav{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-bottom:18px;
+    }
+    .nav a{
+      text-decoration:none;
+      color:var(--text);
+      padding:12px 14px;
+      border-radius:12px;
+      border:1px solid transparent;
+      background:transparent;
+      transition:.2s ease;
+    }
+    .nav a:hover,
+    .nav a.active{
+      background:var(--panel);
+      border-color:var(--line);
+    }
+
+    .side-box{
+      margin-top:20px;
+      padding:14px;
+      border-radius:16px;
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      border:1px solid var(--line);
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+    }
+
+    .main{
+      padding:20px;
+    }
+
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:16px;
+      flex-wrap:wrap;
+      margin-bottom:18px;
+    }
+
+    .title h1{
+      margin:0;
+      font-size:28px;
+      line-height:1.1;
+    }
+    .title p{
+      margin:8px 0 0;
+      color:var(--muted);
+    }
+
+    .toolbar{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    button{
+      border:none;
+      cursor:pointer;
+      border-radius:12px;
+      padding:11px 15px;
+      font-weight:800;
+      transition:.2s ease;
+    }
+    button:hover{transform:translateY(-1px); opacity:.96}
+
+    .btn-primary{background:var(--blue); color:#fff;}
+    .btn-success{background:var(--green); color:#08130d;}
+    .btn-danger{background:var(--red); color:#fff;}
+    .btn-warning{background:var(--yellow); color:#231700;}
+    .btn-soft{
+      background:var(--panel);
+      color:var(--text);
+      border:1px solid var(--line);
+    }
+
+    .card{
+      background:linear-gradient(180deg,var(--panel) 0%, var(--panel2) 100%);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(6,1fr);
+      gap:14px;
+      margin-bottom:18px;
+    }
+
+    .stat{
+      padding:16px;
+    }
+    .stat .label{
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:10px;
+    }
+    .stat .value{
+      font-size:24px;
+      font-weight:900;
+    }
+
+    .green{color:var(--green)}
+    .red{color:var(--red)}
+    .yellow{color:var(--yellow)}
+    .cyan{color:var(--cyan)}
+    .purple{color:var(--purple)}
+
+    .main-grid{
+      display:grid;
+      grid-template-columns:1.1fr 1.1fr .9fr;
+      gap:16px;
+      margin-bottom:18px;
+    }
+
+    .section{
+      padding:18px;
+    }
+
+    .section-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+      margin-bottom:14px;
+      flex-wrap:wrap;
+    }
+    .section-header h2{
+      margin:0;
+      font-size:18px;
+    }
+    .section-header p{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .signal-list,
+    .trade-list,
+    .monitor-list,
+    .logs{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      max-height:680px;
+      overflow:auto;
+      padding-right:4px;
+    }
+
+    .item{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.02);
+      border-radius:16px;
+      padding:14px;
+    }
+
+    .item-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+
+    .pair{
+      font-size:17px;
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:900;
+    }
+    .buy{background:rgba(25,195,125,.13); color:var(--green)}
+    .sell{background:rgba(255,95,115,.13); color:var(--red)}
+    .pending{background:rgba(247,184,75,.14); color:var(--yellow)}
+    .approved{background:rgba(91,140,255,.14); color:var(--blue)}
+    .running{background:rgba(34,211,238,.12); color:var(--cyan)}
+    .closed{background:rgba(155,107,255,.15); color:var(--purple)}
+    .rejected{background:rgba(255,95,115,.12); color:var(--red)}
+    .offline{background:rgba(255,95,115,.12); color:var(--red)}
+    .online{background:rgba(25,195,125,.13); color:var(--green)}
+
+    .meta{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    .meta-box{
+      background:rgba(255,255,255,.025);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px;
+    }
+
+    .meta-box small{
+      display:block;
+      color:var(--muted);
+      font-size:11px;
+      margin-bottom:4px;
+    }
+
+    .meta-box strong{
+      font-size:14px;
+    }
+
+    .actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .mini{
+      padding:9px 12px;
+      font-size:12px;
+      border-radius:10px;
+    }
+
+    .bot-strip{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:14px;
+      margin-bottom:18px;
+    }
+
+    .bot-box{
+      padding:16px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));
+    }
+
+    .bot-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom:10px;
+      flex-wrap:wrap;
+    }
+
+    .bot-name{
+      font-weight:900;
+      font-size:16px;
+    }
+
+    .bot-desc{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+      min-height:58px;
+    }
+
+    .bot-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    .sub-grid{
+      display:grid;
+      grid-template-columns:1.3fr .7fr;
+      gap:16px;
+      margin-bottom:18px;
+    }
+
+    .form-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:12px;
+    }
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .field label{
+      font-size:13px;
+      color:var(--muted);
+    }
+    .field input,
+    .field select{
+      width:100%;
+      background:#0b1430;
+      color:var(--text);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:12px 14px;
+      outline:none;
+    }
+
+    .full{grid-column:1 / -1}
+
+    .log-item{
+      padding:12px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.02);
+    }
+    .log-time{
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:6px;
+    }
+
+    .monitor-bar{
+      height:10px;
+      width:100%;
+      background:rgba(255,255,255,.06);
+      border-radius:999px;
+      overflow:hidden;
+      margin-top:10px;
+      border:1px solid rgba(255,255,255,.04);
+    }
+    .monitor-fill{
+      height:100%;
+      width:50%;
+      background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));
+      transition:.3s ease;
+    }
+
+    .empty-state{
+      text-align:center;
+      color:var(--muted);
+      padding:24px 14px;
+      border:1px dashed var(--line);
+      border-radius:14px;
+      background:rgba(255,255,255,.02);
+    }
+
+    @media (max-width:1300px){
+      .stats{grid-template-columns:repeat(3,1fr)}
+      .main-grid{grid-template-columns:1fr}
+      .sub-grid{grid-template-columns:1fr}
+    }
+
+    @media (max-width:900px){
+      .app{grid-template-columns:1fr}
+      .sidebar{
+        position:relative;
+        height:auto;
+        border-right:none;
+        border-bottom:1px solid var(--line);
+      }
+      .stats{grid-template-columns:repeat(2,1fr)}
+      .bot-strip{grid-template-columns:1fr}
+      .meta{grid-template-columns:1fr 1fr}
+      .form-grid{grid-template-columns:1fr}
+    }
+
+    @media (max-width:560px){
+      .stats{grid-template-columns:1fr}
+      .meta{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">Futures<span>Ops</span></div>
+
+      <nav class="nav">
+        <a class="active" href="#overview">Overview</a>
+        <a href="#signals">Signals</a>
+        <a href="#execution">Execution</a>
+        <a href="#monitoring">Monitoring</a>
+        <a href="#settings">Settings</a>
+        <a href="#logsPanel">Logs</a>
+      </nav>
+
+      <div class="side-box">
+        <strong>Mode:</strong> Cloud / Local<br>
+        <strong>Frontend:</strong> index.html<br>
+        <strong>API:</strong> Auto-detect origin<br><br>
+        Globally accessible trading dashboard. No middleman, no restrictions.
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar" id="overview">
+        <div class="title">
+          <h1>Alpha Pro Trader — FuturesOps Dashboard</h1>
+          <p>Signal generation, trade execution, and trade monitoring — accessible globally.</p>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn-success" onclick="generateSignal()">Generate Signal</button>
+          <button class="btn-primary" onclick="refreshAll()">Refresh</button>
+          <button class="btn-soft" onclick="checkBackendStatus()">Check Backend</button>
+        </div>
+      </div>
+
+      <section class="stats">
+        <div class="card stat">
+          <div class="label">Backend</div>
+          <div class="value" id="backendState">Checking...</div>
+        </div>
+        <div class="card stat">
+          <div class="label">Pending Signals</div>
+          <div class="value yellow" id="pendingSignalsCount">0</div>
+        </div>
+        <div class="card stat">
+          <div class="label">Approved Signals</div>
+          <div class="value cyan" id="approvedSignalsCount">0</div>
+        </div>
+        <div class="card stat">
+          <div class="label">Running Trades</div>
+          <div class="value green" id="runningTradesCount">0</div>
+        </div>
+        <div class="card stat">
+          <div class="label">Closed Trades</div>
+          <div class="value purple" id="closedTradesCount">0</div>
+        </div>
+        <div class="card stat">
+          <div class="label">API Base</div>
+          <div class="value" style="font-size:16px;" id="apiBaseText">Auto-detect</div>
+        </div>
+      </section>
+
+      <section class="card section" style="margin-bottom:18px;">
+        <div class="section-header">
+          <div>
+            <h2>Auto Trading Engines</h2>
+            <p>Auto scalping, auto trade open, and auto trade close — fully automated loop.</p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn-success" onclick="toggleAllAuto(true)">Start All</button>
+            <button class="btn-danger" onclick="toggleAllAuto(false)">Stop All</button>
+            <button class="btn-soft" onclick="loadAutoStatus()">Refresh</button>
+          </div>
+        </div>
+
+        <div class="bot-strip">
+          <div class="bot-box">
+            <div class="bot-head">
+              <div class="bot-name">Auto Scalping</div>
+              <span class="pill" id="scalpingStatus">OFF</span>
+            </div>
+            <div class="bot-desc">
+              Scans multiple symbols using RSI, SMA, Bollinger Bands & volume. Auto-generates signals when confidence exceeds threshold.
+            </div>
+            <div class="form-grid" style="margin:10px 0; gap:8px;">
+              <div class="field">
+                <label>Symbols (comma sep)</label>
+                <input type="text" id="scalpSymbols" value="BTCUSDT,ETHUSDT,SOLUSDT" style="padding:8px 10px;font-size:12px;">
+              </div>
+              <div class="field">
+                <label>Interval (sec)</label>
+                <input type="number" id="scalpInterval" value="30" min="10" style="padding:8px 10px;font-size:12px;">
+              </div>
+              <div class="field">
+                <label>Min Confidence %</label>
+                <input type="number" id="scalpMinConf" value="60" min="0" max="100" style="padding:8px 10px;font-size:12px;">
+              </div>
+            </div>
+            <div class="bot-actions">
+              <button class="btn-success mini" onclick="toggleScalping(true)">Start</button>
+              <button class="btn-danger mini" onclick="toggleScalping(false)">Stop</button>
+            </div>
+          </div>
+
+          <div class="bot-box">
+            <div class="bot-head">
+              <div class="bot-name">Auto Trade Open</div>
+              <span class="pill" id="autoOpenStatus">OFF</span>
+            </div>
+            <div class="bot-desc">
+              Automatically executes approved signals as real trades. Opens positions with configured allocation, leverage, SL & TP.
+            </div>
+            <div class="bot-actions" style="margin-top:12px;">
+              <button class="btn-success mini" onclick="toggleAutoOpen(true)">Start</button>
+              <button class="btn-danger mini" onclick="toggleAutoOpen(false)">Stop</button>
+            </div>
+          </div>
+
+          <div class="bot-box">
+            <div class="bot-head">
+              <div class="bot-name">Auto Trade Close</div>
+              <span class="pill" id="autoCloseStatus">OFF</span>
+            </div>
+            <div class="bot-desc">
+              Monitors all running trades. Auto-closes on SL/TP hit, trailing stop, or max hold time.
+            </div>
+            <div class="form-grid" style="margin:10px 0; gap:8px;">
+              <div class="field">
+                <label>Trailing Stop %</label>
+                <input type="number" id="trailingStopPct" value="0.5" step="0.1" min="0" style="padding:8px 10px;font-size:12px;">
+              </div>
+              <div class="field">
+                <label>Max Hold (min, 0=off)</label>
+                <input type="number" id="maxHoldMin" value="0" min="0" style="padding:8px 10px;font-size:12px;">
+              </div>
+            </div>
+            <div class="bot-actions">
+              <button class="btn-success mini" onclick="toggleAutoClose(true)">Start</button>
+              <button class="btn-danger mini" onclick="toggleAutoClose(false)">Stop</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card section" style="margin-bottom:18px;">
+        <div class="section-header">
+          <div>
+            <h2>Bot Roles</h2>
+            <p>Manual controls: scanner, executor, monitor.</p>
+          </div>
+        </div>
+
+        <div class="bot-strip">
+          <div class="bot-box">
+            <div class="bot-head">
+              <div class="bot-name">Manual Signal Scan</div>
+              <span class="pill running">LOCAL</span>
+            </div>
+            <div class="bot-desc">
+              Manually request signal generation from real Binance data.
+            </div>
+            <div class="bot-actions">
+              <button class="btn-primary mini" onclick="generateSignal()">Run Scan</button>
+            </div>
+          </div>
+
+          <div class="bot-box">
+            <div class="bot-head">
+              <div class="bot-name">Manual Executor</div>
+              <span class="pill approved">LOCAL</span>
+            </div>
+            <div class="bot-desc">
+              Execute approved signals manually via the execution panel.
+            </div>
+            <div class="bot-actions">
+              <button class="btn-soft mini" onclick="loadApprovedSignals()">Reload Queue</button>
+            </div>
+          </div>
+
+          <div class="bot-box">
+            <div class="bot-head">
+              <div class="bot-name">Trade Monitor</div>
+              <span class="pill running">LOCAL</span>
+            </div>
+            <div class="bot-desc">
+              View and manually close running trades.
+            </div>
+            <div class="bot-actions">
+              <button class="btn-primary mini" onclick="loadTrades()">Reload Trades</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="main-grid">
+        <div class="card section" id="signals">
+          <div class="section-header">
+            <div>
+              <h2>Signal Generator</h2>
+              <p>Signals come from localhost backend and appear here for approval or rejection.</p>
+            </div>
+            <button class="btn-success" onclick="generateSignal()">New Signal</button>
+          </div>
+          <div class="signal-list" id="signalList">
+            <div class="empty-state">No signals loaded.</div>
+          </div>
+        </div>
+
+        <div class="card section" id="execution">
+          <div class="section-header">
+            <div>
+              <h2>Trade Execution Panel</h2>
+              <p>Approved signals ready to execute through local backend.</p>
+            </div>
+            <button class="btn-soft" onclick="loadApprovedSignals()">Refresh Queue</button>
+          </div>
+          <div class="trade-list" id="approvedSignalList">
+            <div class="empty-state">No approved signals waiting.</div>
+          </div>
+        </div>
+
+        <div class="card section" id="monitoring">
+          <div class="section-header">
+            <div>
+              <h2>Trade Monitoring</h2>
+              <p>Running trades from localhost backend, with monitor and close actions.</p>
+            </div>
+            <button class="btn-soft" onclick="loadTrades()">Refresh Trades</button>
+          </div>
+          <div class="monitor-list" id="monitorList">
+            <div class="empty-state">No running trades loaded.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="sub-grid">
+        <div class="card section" id="settings">
+          <div class="section-header">
+            <div>
+              <h2>Local Settings</h2>
+              <p>These settings are saved to localhost backend instead of external automation.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field">
+              <label>API Base URL</label>
+              <input type="text" id="apiBaseInput" value="auto" placeholder="'auto' = use current origin">
+            </div>
+            <div class="field">
+              <label>Trade Allocation %</label>
+              <input type="number" id="allocationInput" value="25" min="1" max="100">
+            </div>
+            <div class="field">
+              <label>Default Leverage</label>
+              <input type="number" id="leverageInput" value="10" min="1" max="125">
+            </div>
+            <div class="field">
+              <label>Take Profit %</label>
+              <input type="number" id="tpInput" value="2.0" step="0.1">
+            </div>
+            <div class="field">
+              <label>Stop Loss %</label>
+              <input type="number" id="slInput" value="1.0" step="0.1">
+            </div>
+            <div class="field">
+              <label>Auto Refresh Seconds</label>
+              <input type="number" id="refreshIntervalInput" value="10" min="3" max="300">
+            </div>
+            <div class="field full">
+              <label>Binance API Key</label>
+              <input type="text" id="apiKeyInput" placeholder="Enter Binance API key">
+            </div>
+            <div class="field full">
+              <label>Binance Secret Key</label>
+              <input type="password" id="secretKeyInput" placeholder="Enter Binance secret key">
+            </div>
+          </div>
+
+          <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn-success" onclick="saveSettings()">Save Settings</button>
+            <button class="btn-primary" onclick="refreshAll()">Reload Dashboard</button>
+          </div>
+        </div>
+
+        <div class="card section" id="logsPanel">
+          <div class="section-header">
+            <div>
+              <h2>Activity Logs</h2>
+              <p>Everything the UI sends to localhost gets logged here.</p>
+            </div>
+            <button class="btn-soft" onclick="clearLogs()">Clear</button>
+          </div>
+          <div class="logs" id="logsContainer">
+            <div class="log-item">
+              <div class="log-time">System</div>
+              <div>Local dashboard loaded.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    let autoRefreshTimer = null;
+
+    function nowTime() {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function logAction(message) {
+      const logs = document.getElementById('logsContainer');
+      const item = document.createElement('div');
+      item.className = 'log-item';
+      item.innerHTML = `
+        <div class="log-time">${nowTime()}</div>
+        <div>${message}</div>
+      `;
+      logs.prepend(item);
+    }
+
+    function clearLogs() {
+      document.getElementById('logsContainer').innerHTML = '';
+      logAction('Logs cleared');
+    }
+
+    function getApiBase() {
+      const inputVal = document.getElementById('apiBaseInput').value.trim().replace(/\/+$/, '');
+      if (inputVal && inputVal !== 'auto') return inputVal;
+      return window.location.origin;
+    }
+
+    function updateApiBaseText() {
+      document.getElementById('apiBaseText').textContent = getApiBase();
+    }
+
+    async function safeFetch(path, opts = {}, timeoutMs = 10000) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), timeoutMs);
+
+      try {
+        const url = path.startsWith('http') ? path : `${getApiBase()}${path}`;
+        const res = await fetch(url, {
+          ...opts,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(opts.headers || {})
+          },
+          cache: 'no-store',
+          signal: ctrl.signal
+        });
+
+        let data = null;
+        const text = await res.text();
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch {
+          data = text;
+        }
+
+        if (!res.ok) {
+          throw new Error((data && data.error) || `HTTP ${res.status}`);
+        }
+
+        return data;
+      } finally {
+        clearTimeout(t);
+      }
+    }
+
+    async function checkBackendStatus() {
+      updateApiBaseText();
+      const backendState = document.getElementById('backendState');
+
+      try {
+        const data = await safeFetch('/api/status', { method: 'GET' }, 5000);
+        backendState.textContent = (data && data.status ? data.status : 'ONLINE').toUpperCase();
+        backendState.className = 'value green';
+        logAction('Backend status OK');
+      } catch (err) {
+        backendState.textContent = 'OFFLINE';
+        backendState.className = 'value red';
+        logAction(`Backend status failed: ${err.message}`);
+      }
+    }
+
+    function setCounts({ pending = 0, approved = 0, running = 0, closed = 0 }) {
+      document.getElementById('pendingSignalsCount').textContent = pending;
+      document.getElementById('approvedSignalsCount').textContent = approved;
+      document.getElementById('runningTradesCount').textContent = running;
+      document.getElementById('closedTradesCount').textContent = closed;
+    }
+
+    function renderSignals(signals = []) {
+      const wrap = document.getElementById('signalList');
+
+      if (!signals.length) {
+        wrap.innerHTML = `<div class="empty-state">No signals loaded.</div>`;
+        return;
+      }
+
+      wrap.innerHTML = signals.map(signal => `
+        <div class="item">
+          <div class="item-top">
+            <div class="pair">${escapeHtml(signal.pair || '-')}</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <span class="pill ${(signal.side || '').toUpperCase() === 'BUY' ? 'buy' : 'sell'}">${escapeHtml((signal.side || '-').toUpperCase())}</span>
+              <span class="pill ${signal.status === 'approved' ? 'approved' : signal.status === 'rejected' ? 'rejected' : 'pending'}">${escapeHtml((signal.status || 'pending').toUpperCase())}</span>
+            </div>
+          </div>
+
+          <div class="meta">
+            <div class="meta-box"><small>Entry</small><strong>${escapeHtml(String(signal.entry ?? '-'))}</strong></div>
+            <div class="meta-box"><small>Stop Loss</small><strong>${escapeHtml(String(signal.stopLoss ?? '-'))}</strong></div>
+            <div class="meta-box"><small>Take Profit</small><strong>${escapeHtml(String(signal.takeProfit ?? '-'))}</strong></div>
+            <div class="meta-box"><small>Leverage</small><strong>${escapeHtml(String(signal.leverage ?? '-'))}x</strong></div>
+            <div class="meta-box"><small>Confidence</small><strong>${escapeHtml(String(signal.confidence ?? '-'))}%</strong></div>
+            <div class="meta-box"><small>Created</small><strong>${escapeHtml(String(signal.createdAt || signal.created_at || '-'))}</strong></div>
+          </div>
+
+          <div class="actions">
+            ${(signal.status || 'pending') === 'pending' ? `
+              <button class="btn-success mini" onclick="approveSignal('${escapeAttr(signal.id)}')">Approve</button>
+              <button class="btn-danger mini" onclick="rejectSignal('${escapeAttr(signal.id)}')">Reject</button>
+            ` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderApprovedSignals(signals = []) {
+      const wrap = document.getElementById('approvedSignalList');
+
+      if (!signals.length) {
+        wrap.innerHTML = `<div class="empty-state">No approved signals waiting.</div>`;
+        return;
+      }
+
+      wrap.innerHTML = signals.map(signal => `
+        <div class="item">
+          <div class="item-top">
+            <div class="pair">${escapeHtml(signal.pair || '-')}</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <span class="pill ${(signal.side || '').toUpperCase() === 'BUY' ? 'buy' : 'sell'}">${escapeHtml((signal.side || '-').toUpperCase())}</span>
+              <span class="pill approved">APPROVED</span>
+            </div>
+          </div>
+
+          <div class="meta">
+            <div class="meta-box"><small>Entry</small><strong>${escapeHtml(String(signal.entry ?? '-'))}</strong></div>
+            <div class="meta-box"><small>SL</small><strong>${escapeHtml(String(signal.stopLoss ?? '-'))}</strong></div>
+            <div class="meta-box"><small>TP</small><strong>${escapeHtml(String(signal.takeProfit ?? '-'))}</strong></div>
+            <div class="meta-box"><small>Leverage</small><strong>${escapeHtml(String(signal.leverage ?? '-'))}x</strong></div>
+            <div class="meta-box"><small>Confidence</small><strong>${escapeHtml(String(signal.confidence ?? '-'))}%</strong></div>
+            <div class="meta-box"><small>Status</small><strong>Ready</strong></div>
+          </div>
+
+          <div class="actions">
+            <button class="btn-primary mini" onclick="executeApprovedSignal('${escapeAttr(signal.id)}')">Execute Trade</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderTrades(trades = []) {
+      const wrap = document.getElementById('monitorList');
+
+      if (!trades.length) {
+        wrap.innerHTML = `<div class="empty-state">No running trades loaded.</div>`;
+        return;
+      }
+
+      wrap.innerHTML = trades.map(trade => {
+        const pnl = Number(trade.pnl ?? 0);
+        const pnlText = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
+        const pnlClass = pnl >= 0 ? 'green' : 'red';
+        const score = Math.max(5, Math.min(100, Number(trade.monitorScore ?? trade.monitor_score ?? 50)));
+
+        return `
+          <div class="item">
+            <div class="item-top">
+              <div class="pair">${escapeHtml(trade.pair || '-')}</div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <span class="pill ${(trade.side || '').toUpperCase() === 'BUY' ? 'buy' : 'sell'}">${escapeHtml((trade.side || '-').toUpperCase())}</span>
+                <span class="pill ${(trade.status || 'running') === 'closed' ? 'closed' : 'running'}">${escapeHtml((trade.status || 'running').toUpperCase())}</span>
+              </div>
+            </div>
+
+            <div class="meta">
+              <div class="meta-box"><small>Entry</small><strong>${escapeHtml(String(trade.entry ?? '-'))}</strong></div>
+              <div class="meta-box"><small>Size</small><strong>$${escapeHtml(String(trade.sizeUsd ?? trade.size_usd ?? '-'))}</strong></div>
+              <div class="meta-box"><small>PnL</small><strong class="${pnlClass}">${pnlText}</strong></div>
+              <div class="meta-box"><small>SL</small><strong>${escapeHtml(String(trade.stopLoss ?? '-'))}</strong></div>
+              <div class="meta-box"><small>TP</small><strong>${escapeHtml(String(trade.takeProfit ?? '-'))}</strong></div>
+              <div class="meta-box"><small>Opened</small><strong>${escapeHtml(String(trade.openedAt || trade.opened_at || '-'))}</strong></div>
+            </div>
+
+            <div style="font-size:12px; color:var(--muted);">Monitor pressure / reaction level</div>
+            <div class="monitor-bar">
+              <div class="monitor-fill" style="width:${score}%"></div>
+            </div>
+
+            <div class="actions" style="margin-top:12px;">
+              ${(trade.status || 'running') !== 'closed' ? `
+                <button class="btn-warning mini" onclick="monitorTrade('${escapeAttr(trade.id)}')">Monitor</button>
+                <button class="btn-danger mini" onclick="closeTrade('${escapeAttr(trade.id)}')">Close Trade</button>
+              ` : `
+                <span class="pill closed">TRADE CLOSED</span>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function escapeAttr(value) {
+      return String(value).replaceAll("'", '&#39;');
+    }
+
+    async function loadSignals() {
+      try {
+        const data = await safeFetch('/api/signals');
+        const signals = Array.isArray(data) ? data : (data.signals || []);
+        renderSignals(signals);
+        return signals;
+      } catch (err) {
+        renderSignals([]);
+        logAction(`Load signals failed: ${err.message}`);
+        return [];
+      }
+    }
+
+    async function loadApprovedSignals() {
+      try {
+        const data = await safeFetch('/api/approved-signals');
+        const signals = Array.isArray(data) ? data : (data.signals || []);
+        renderApprovedSignals(signals);
+        return signals;
+      } catch (err) {
+        renderApprovedSignals([]);
+        logAction(`Load approved signals failed: ${err.message}`);
+        return [];
+      }
+    }
+
+    async function loadTrades() {
+      try {
+        const data = await safeFetch('/api/trades');
+        const trades = Array.isArray(data) ? data : (data.trades || []);
+        renderTrades(trades);
+
+        const running = trades.filter(t => (t.status || 'running') !== 'closed').length;
+        const closed = trades.filter(t => (t.status || '') === 'closed').length;
+
+        return { trades, running, closed };
+      } catch (err) {
+        renderTrades([]);
+        logAction(`Load trades failed: ${err.message}`);
+        return { trades: [], running: 0, closed: 0 };
+      }
+    }
+
+    async function generateSignal() {
+      try {
+        const payload = {
+          leverage: Number(document.getElementById('leverageInput').value || 10),
+          takeProfitPercent: Number(document.getElementById('tpInput').value || 2),
+          stopLossPercent: Number(document.getElementById('slInput').value || 1)
+        };
+
+        await safeFetch('/api/signals/generate', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+
+        logAction('Signal generated through localhost backend');
+        await refreshAll();
+      } catch (err) {
+        logAction(`Generate signal failed: ${err.message}`);
+        alert(`Generate signal failed: ${err.message}`);
+      }
+    }
+
+    async function approveSignal(id) {
+      try {
+        await safeFetch(`/api/signals/${encodeURIComponent(id)}/approve`, {
+          method: 'POST'
+        });
+        logAction(`Signal approved: ${id}`);
+        await refreshAll();
+      } catch (err) {
+        logAction(`Approve signal failed: ${err.message}`);
+      }
+    }
+
+    async function rejectSignal(id) {
+      try {
+        await safeFetch(`/api/signals/${encodeURIComponent(id)}/reject`, {
+          method: 'POST'
+        });
+        logAction(`Signal rejected: ${id}`);
+        await refreshAll();
+      } catch (err) {
+        logAction(`Reject signal failed: ${err.message}`);
+      }
+    }
+
+    async function executeApprovedSignal(id) {
+      try {
+        const payload = {
+          signalId: id,
+          allocationPercent: Number(document.getElementById('allocationInput').value || 25)
+        };
+
+        await safeFetch('/api/trades/execute', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+
+        logAction(`Trade executed from approved signal: ${id}`);
+        await refreshAll();
+      } catch (err) {
+        logAction(`Execute trade failed: ${err.message}`);
+        alert(`Execute trade failed: ${err.message}`);
+      }
+    }
+
+    async function monitorTrade(id) {
+      try {
+        await safeFetch(`/api/trades/${encodeURIComponent(id)}/monitor`, {
+          method: 'POST'
+        });
+
+        logAction(`Trade monitored: ${id}`);
+        await refreshAll();
+      } catch (err) {
+        logAction(`Monitor trade failed: ${err.message}`);
+      }
+    }
+
+    async function closeTrade(id) {
+      try {
+        await safeFetch(`/api/trades/${encodeURIComponent(id)}/close`, {
+          method: 'POST'
+        });
+
+        logAction(`Trade closed: ${id}`);
+        await refreshAll();
+      } catch (err) {
+        logAction(`Close trade failed: ${err.message}`);
+      }
+    }
+
+    async function saveSettings() {
+      try {
+        const payload = {
+          apiBase: getApiBase(),
+          allocationPercent: Number(document.getElementById('allocationInput').value || 25),
+          leverage: Number(document.getElementById('leverageInput').value || 10),
+          takeProfitPercent: Number(document.getElementById('tpInput').value || 2),
+          stopLossPercent: Number(document.getElementById('slInput').value || 1),
+          refreshIntervalSec: Number(document.getElementById('refreshIntervalInput').value || 10),
+          apiKey: document.getElementById('apiKeyInput').value.trim(),
+          secretKey: document.getElementById('secretKeyInput').value.trim()
+        };
+
+        await safeFetch('/api/settings/save', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+
+        updateApiBaseText();
+        resetAutoRefresh();
+        logAction('Settings saved to localhost backend');
+        alert('Settings saved.');
+      } catch (err) {
+        logAction(`Save settings failed: ${err.message}`);
+        alert(`Save settings failed: ${err.message}`);
+      }
+    }
+
+    async function refreshAll() {
+      updateApiBaseText();
+      await checkBackendStatus();
+
+      const [signals, approvedSignals, tradesData] = await Promise.all([
+        loadSignals(),
+        loadApprovedSignals(),
+        loadTrades()
+      ]);
+
+      const pending = signals.filter(s => (s.status || 'pending') === 'pending').length;
+      const approved = approvedSignals.length;
+      const running = tradesData.running;
+      const closed = tradesData.closed;
+
+      setCounts({ pending, approved, running, closed });
+    }
+
+    function resetAutoRefresh() {
+      if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+
+      const sec = Math.max(3, Number(document.getElementById('refreshIntervalInput').value || 10));
+      autoRefreshTimer = setInterval(() => {
+        refreshAll().catch(err => {
+          logAction(`Auto refresh failed: ${err.message}`);
+        });
+      }, sec * 1000);
+    }
+
+    // ===== AUTO TRADING CONTROLS =====
+    function updateAutoPill(id, running) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = running ? 'RUNNING' : 'OFF';
+      el.className = running ? 'pill running' : 'pill offline';
+    }
+
+    async function loadAutoStatus() {
+      try {
+        const data = await safeFetch('/api/auto/status');
+        if (data.scalping) {
+          updateAutoPill('scalpingStatus', data.scalping.running);
+          if (data.scalping.symbols?.length) document.getElementById('scalpSymbols').value = data.scalping.symbols.join(',');
+          if (data.scalping.intervalSec) document.getElementById('scalpInterval').value = data.scalping.intervalSec;
+          if (data.scalping.minConfidence) document.getElementById('scalpMinConf').value = data.scalping.minConfidence;
+        }
+        if (data.autoOpen) updateAutoPill('autoOpenStatus', data.autoOpen.running);
+        if (data.autoClose) {
+          updateAutoPill('autoCloseStatus', data.autoClose.running);
+          if (data.autoClose.trailingStopPct) document.getElementById('trailingStopPct').value = data.autoClose.trailingStopPct;
+          if (data.autoClose.maxHoldMinutes) document.getElementById('maxHoldMin').value = data.autoClose.maxHoldMinutes;
+        }
+      } catch (err) {
+        logAction(`Load auto status failed: ${err.message}`);
+      }
+    }
+
+    async function toggleScalping(on) {
+      try {
+        const symbols = document.getElementById('scalpSymbols').value.split(',').map(s => s.trim()).filter(Boolean);
+        const intervalSec = Number(document.getElementById('scalpInterval').value || 30);
+        const minConfidence = Number(document.getElementById('scalpMinConf').value || 60);
+        const data = await safeFetch('/api/auto/scalping', {
+          method: 'POST',
+          body: JSON.stringify({ enabled: on, symbols, intervalSec, minConfidence })
+        });
+        updateAutoPill('scalpingStatus', data.running);
+        logAction(`Auto scalping ${on ? 'started' : 'stopped'}`);
+        await refreshAll();
+      } catch (err) {
+        logAction(`Toggle scalping failed: ${err.message}`);
+        alert(`Toggle scalping failed: ${err.message}`);
+      }
+    }
+
+    async function toggleAutoOpen(on) {
+      try {
+        const data = await safeFetch('/api/auto/trade-open', {
+          method: 'POST',
+          body: JSON.stringify({ enabled: on })
+        });
+        updateAutoPill('autoOpenStatus', data.running);
+        logAction(`Auto trade open ${on ? 'started' : 'stopped'}`);
+      } catch (err) {
+        logAction(`Toggle auto open failed: ${err.message}`);
+        alert(`Toggle auto open failed: ${err.message}`);
+      }
+    }
+
+    async function toggleAutoClose(on) {
+      try {
+        const trailingStopPct = Number(document.getElementById('trailingStopPct').value || 0);
+        const maxHoldMinutes = Number(document.getElementById('maxHoldMin').value || 0);
+        const data = await safeFetch('/api/auto/trade-close', {
+          method: 'POST',
+          body: JSON.stringify({ enabled: on, trailingStopPct, maxHoldMinutes })
+        });
+        updateAutoPill('autoCloseStatus', data.running);
+        logAction(`Auto trade close ${on ? 'started' : 'stopped'}`);
+      } catch (err) {
+        logAction(`Toggle auto close failed: ${err.message}`);
+        alert(`Toggle auto close failed: ${err.message}`);
+      }
+    }
+
+    async function toggleAllAuto(on) {
+      try {
+        const data = await safeFetch('/api/auto/toggle-all', {
+          method: 'POST',
+          body: JSON.stringify({ enabled: on })
+        });
+        updateAutoPill('scalpingStatus', data.scalping?.running);
+        updateAutoPill('autoOpenStatus', data.autoOpen?.running);
+        updateAutoPill('autoCloseStatus', data.autoClose?.running);
+        logAction(`All auto engines ${on ? 'started' : 'stopped'}`);
+        await refreshAll();
+      } catch (err) {
+        logAction(`Toggle all auto failed: ${err.message}`);
+        alert(`Toggle all auto failed: ${err.message}`);
+      }
+    }
+
+    async function init() {
+      updateApiBaseText();
+      resetAutoRefresh();
+      await refreshAll();
+      await loadAutoStatus();
+      logAction('Initial localhost sync completed');
+    }
+
+    init();
+  </script>
+</body>
+</html>
