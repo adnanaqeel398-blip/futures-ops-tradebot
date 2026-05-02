@@ -78,6 +78,20 @@ npm start               # http://localhost:8787
 | GET | `/api/master/summary` | Master account summary |
 | GET | `/api/logs` | Activity logs |
 
+## Live Deployment
+
+The bot is deployed on Railway and accessible globally:
+
+**Dashboard:** https://futures-ops-tradebot-production.up.railway.app
+
+### Blogspot Integration
+
+To embed on https://alphaprotrader.blogspot.com/:
+1. Go to Blogger → Pages → New Page (or edit existing)
+2. Switch to **HTML view**
+3. Paste the code from `BLOGSPOT_EMBED.html`
+4. Publish
+
 ## Environment Variables
 
 See `.env.example` for all configuration options.
