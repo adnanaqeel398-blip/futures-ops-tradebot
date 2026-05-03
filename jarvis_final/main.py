@@ -10,6 +10,7 @@ Usage:
     python main.py --agent          # Start agent client only
     python main.py --all            # Start everything
     python main.py --cli            # CLI mode only (no server)
+    python main.py --voice          # Voice mode (listen + speak)
 """
 
 import argparse
@@ -58,6 +59,7 @@ def run_cli():
     print("  /status        -> Show bot status")
     print("  /logs          -> Show recent logs")
     print("  /clear         -> Clear logs")
+    print("  /voice         -> Switch to voice mode")
     print("  /help          -> Show this help")
     print("  /quit          -> Exit")
     print("=" * 50 + "\n")
@@ -105,8 +107,18 @@ def run_cli():
             print("  Logs cleared.\n")
             continue
 
+        if user_input == "/voice":
+            try:
+                from voice import voice_loop
+                voice_loop()
+            except ImportError:
+                print("  Voice module not available. Install: pip install SpeechRecognition pyttsx3 gTTS PyAudio\n")
+            except Exception as e:
+                print(f"  Voice error: {e}\n")
+            continue
+
         if user_input == "/help":
-            print("\nCommands: /status, /logs, /clear, /quit")
+            print("\nCommands: /status, /logs, /clear, /voice, /quit")
             print("Or type any goal to execute it.\n")
             continue
 
@@ -128,6 +140,7 @@ def main():
     parser.add_argument("--agent", action="store_true", help="Start agent client only")
     parser.add_argument("--all", action="store_true", help="Start all services")
     parser.add_argument("--cli", action="store_true", help="CLI mode only (no server)")
+    parser.add_argument("--voice", action="store_true", help="Voice mode (listen + speak)")
     args = parser.parse_args()
 
     threads = []
@@ -146,6 +159,11 @@ def main():
 
     if args.cli:
         run_cli()
+        return
+
+    if args.voice:
+        from voice import voice_loop
+        voice_loop()
         return
 
     if args.all:

@@ -14,6 +14,7 @@ from flask_cors import CORS
 from controller import run_goal, get_state, clear_logs
 from ui_memory import stats as memory_stats, clear as memory_clear
 from rl_agent import get_stats as rl_stats
+from voice import speak, listen
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -76,6 +77,70 @@ def handle_logs_clear():
     """Clear action logs."""
     clear_logs()
     return jsonify({"status": "logs_cleared"})
+
+
+@app.route("/voice/speak", methods=["POST"])
+def handle_speak():
+    """Speak text aloud using TTS."""
+    data = request.get_json(silent=True)
+    if not data or "text" not in data:
+        return jsonify({"error": "Missing 'text' in request body"}), 400
+
+    text = data["text"].strip()
+    if not text:
+        return jsonify({"error": "Text cannot be empty"}), 400
+
+    engine = speak(text)
+    return jsonify({"status": "ok", "engine": engine, "text": text})
+
+
+@app.route("/voice/listen", methods=["POST"])
+def handle_listen():
+    """Listen to microphone and return transcribed text."""
+    data = request.get_json(silent=True) or {}
+    timeout = data.get("timeout", 5)
+    phrase_limit = data.get("phrase_limit", 10)
+
+    result = listen(timeout=timeout, phrase_limit=phrase_limit)
+    return jsonify(result)
+
+
+@app.route("/voice/run", methods=["POST"])
+def handle_voice_run():
+    """Listen → execute goal → speak result. Full voice interaction."""
+    data = request.get_json(silent=True) or {}
+    timeout = data.get("timeout", 5)
+
+    # Step 1: Listen
+    heard = listen(timeout=timeout)
+    if heard["status"] != "ok" or not heard["text"]:
+        return jsonify({
+            "status": "no_input",
+            "listen_result": heard,
+        })
+
+    goal = heard["text"]
+
+    # Step 2: Execute
+    result = run_goal(goal)
+
+    # Step 3: Speak result
+    status = result.get("status", "unknown")
+    if status == "blocked":
+        response = f"Blocked for safety: {result.get('reason', 'unsafe')}"
+    elif status == "error":
+        response = f"Error: {result.get('error', 'unknown')}"
+    else:
+        response = f"Done. {result.get('result', 'completed')}"
+
+    speak(response)
+
+    return jsonify({
+        "status": "ok",
+        "heard": goal,
+        "result": result,
+        "spoken": response,
+    })
 
 
 @app.route("/health")

@@ -248,6 +248,10 @@
                 <input type="text" id="cmdInput" placeholder="Enter a goal... (e.g., 'search for python docs')"
                        onkeypress="if(event.key==='Enter') runCommand()">
                 <button class="btn btn-primary" id="runBtn" onclick="runCommand()">Execute</button>
+                <button class="btn" id="voiceBtn" onclick="voiceInput()" style="background:#8b5cf6; min-width:110px;">🎤 Voice</button>
+            </div>
+            <div id="voiceStatus" style="display:none; margin-top:8px; padding:8px 12px; border-radius:6px; background:#1e1b4b; color:#a78bfa; font-size:0.9em;">
+                Listening...
             </div>
             <div id="lastResult" class="last-action" style="display:none; margin-top:12px;">
                 <div class="label">Last Result</div>
@@ -340,10 +344,13 @@
 
                 if (data.status === "blocked") {
                     resultText.innerHTML = `<span style="color:#f85149">BLOCKED: ${data.reason}</span>`;
+                    speakResult("Blocked. " + (data.reason || "unsafe command"));
                 } else if (data.status === "error") {
                     resultText.innerHTML = `<span style="color:#f85149">ERROR: ${data.error}</span>`;
+                    speakResult("Error. " + (data.error || "unknown"));
                 } else {
                     resultText.innerHTML = `<span style="color:#2dd272">${data.result || "OK"}</span>`;
+                    speakResult("Done. " + (data.result || "completed"));
                 }
 
                 input.value = "";
@@ -357,6 +364,100 @@
 
             btn.disabled = false;
             btn.textContent = "Execute";
+        }
+
+        async function voiceInput() {
+            const vBtn = document.getElementById("voiceBtn");
+            const vStatus = document.getElementById("voiceStatus");
+            const input = document.getElementById("cmdInput");
+
+            // Check for browser Web Speech API first
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+                recognition.lang = "en-US";
+                recognition.interimResults = false;
+
+                vBtn.disabled = true;
+                vBtn.innerHTML = '🎤 Listening...';
+                vBtn.style.background = "#dc2626";
+                vStatus.style.display = "block";
+                vStatus.textContent = "Listening... Speak your goal now.";
+
+                recognition.onresult = function(event) {
+                    const text = event.results[0][0].transcript;
+                    input.value = text;
+                    vStatus.textContent = "Heard: \"" + text + "\"";
+                    vStatus.style.color = "#2dd272";
+                    vBtn.disabled = false;
+                    vBtn.innerHTML = '🎤 Voice';
+                    vBtn.style.background = "#8b5cf6";
+                    // Auto-run the command
+                    runCommand();
+                };
+
+                recognition.onerror = function(event) {
+                    vStatus.textContent = "Voice error: " + event.error;
+                    vStatus.style.color = "#f85149";
+                    vBtn.disabled = false;
+                    vBtn.innerHTML = '🎤 Voice';
+                    vBtn.style.background = "#8b5cf6";
+                };
+
+                recognition.onend = function() {
+                    if (vBtn.disabled) {
+                        vBtn.disabled = false;
+                        vBtn.innerHTML = '🎤 Voice';
+                        vBtn.style.background = "#8b5cf6";
+                    }
+                };
+
+                recognition.start();
+                return;
+            }
+
+            // Fallback: use server-side voice recognition
+            vBtn.disabled = true;
+            vBtn.innerHTML = '🎤 Listening...';
+            vBtn.style.background = "#dc2626";
+            vStatus.style.display = "block";
+            vStatus.textContent = "Listening via server... Speak now.";
+
+            try {
+                const res = await fetch(`${API}/voice/listen`, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({timeout: 5, phrase_limit: 10})
+                });
+                const data = await res.json();
+
+                if (data.status === "ok" && data.text) {
+                    input.value = data.text;
+                    vStatus.textContent = "Heard: \"" + data.text + "\"";
+                    vStatus.style.color = "#2dd272";
+                    runCommand();
+                } else {
+                    vStatus.textContent = data.error || "No speech detected";
+                    vStatus.style.color = "#f85149";
+                }
+            } catch (e) {
+                vStatus.textContent = "Voice failed - " + e.message;
+                vStatus.style.color = "#f85149";
+            }
+
+            vBtn.disabled = false;
+            vBtn.innerHTML = '🎤 Voice';
+            vBtn.style.background = "#8b5cf6";
+        }
+
+        // Also speak results using browser TTS
+        function speakResult(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
         }
 
         async function fetchStatus() {

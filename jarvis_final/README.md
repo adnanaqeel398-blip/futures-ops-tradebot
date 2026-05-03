@@ -1,6 +1,6 @@
 # Jarvis Bot
 
-A multi-agent AI desktop assistant with vision, reinforcement learning, memory-based UI interaction, and remote control capabilities.
+A multi-agent AI desktop assistant with vision, reinforcement learning, memory-based UI interaction, voice control, and remote control capabilities.
 
 ## Features
 
@@ -17,6 +17,7 @@ A multi-agent AI desktop assistant with vision, reinforcement learning, memory-b
 | **Dashboard** | Real-time web dashboard for monitoring and control |
 | **Cloud Server** | Remote command queue for controlling Jarvis from anywhere |
 | **Agent Client** | Background agent that polls cloud server for commands |
+| **Voice** | Speech-to-text (listen) + text-to-speech (speak) for hands-free control |
 
 ## Project Structure
 
@@ -36,6 +37,7 @@ jarvis_final/
 ├── server.py            # Local Flask API (port 5050)
 ├── cloud_server.py      # Cloud command queue (port 8000)
 ├── agent_client.py      # Cloud polling agent
+├── voice.py             # Voice input/output (STT + TTS)
 ├── dashboard.html       # Web dashboard UI
 ├── memory.json          # UI memory store
 ├── q_table.json         # RL Q-table (auto-generated)
@@ -75,6 +77,11 @@ python main.py --server
 python main.py --cli
 ```
 
+**Voice mode** (listen + speak):
+```bash
+python main.py --voice
+```
+
 **Everything** (local server + cloud server + agent client + CLI):
 ```bash
 python main.py --all
@@ -87,7 +94,7 @@ Open `dashboard.html` in your browser. It connects to the local server at `http:
 ## Architecture
 
 ```
-User Input (CLI / Dashboard / Cloud)
+User Input (CLI / Voice / Dashboard / Cloud)
          │
          ▼
     ┌─────────┐
@@ -143,6 +150,7 @@ User Input (CLI / Dashboard / Cloud)
 | `/status` | Show bot statistics |
 | `/logs` | Show recent activity logs |
 | `/clear` | Clear logs |
+| `/voice` | Switch to voice mode |
 | `/help` | Show help |
 | `/quit` | Exit |
 

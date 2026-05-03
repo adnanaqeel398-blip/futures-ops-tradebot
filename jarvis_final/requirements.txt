@@ -9,3 +9,7 @@ requests
 pyjwt
 bcrypt
 Pillow
+SpeechRecognition
+pyttsx3
+gTTS
+PyAudio
