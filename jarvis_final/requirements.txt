@@ -1,0 +1,11 @@
+openai
+pyautogui
+opencv-python
+mss
+numpy
+flask
+flask-cors
+requests
+pyjwt
+bcrypt
+Pillow

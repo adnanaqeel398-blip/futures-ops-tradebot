@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis Bot Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0a0e17;
+            color: #e0e6ed;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1f2e 0%, #0d1117 100%);
+            border-bottom: 1px solid #1e2d3d;
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #00d2ff, #7b2ff7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .status-online { background: #0d3320; color: #2dd272; border: 1px solid #1a5c38; }
+        .status-offline { background: #3d1515; color: #f85149; border: 1px solid #5c1a1a; }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: #151b28;
+            border: 1px solid #1e2d3d;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .card h2 {
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #7b8ca3;
+            margin-bottom: 16px;
+        }
+
+        .command-card { grid-column: 1 / -1; }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-row input {
+            flex: 1;
+            padding: 12px 16px;
+            background: #0d1117;
+            border: 1px solid #2a3a4d;
+            border-radius: 8px;
+            color: #e0e6ed;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-row input:focus {
+            border-color: #00d2ff;
+        }
+
+        .input-row input::placeholder {
+            color: #4a5568;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d2ff, #7b2ff7);
+            color: white;
+        }
+
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-secondary {
+            background: #1e2d3d;
+            color: #7b8ca3;
+            border: 1px solid #2a3a4d;
+        }
+
+        .btn-secondary:hover { background: #2a3a4d; color: #e0e6ed; }
+
+        .btn-danger {
+            background: #3d1515;
+            color: #f85149;
+            border: 1px solid #5c1a1a;
+        }
+
+        .btn-danger:hover { background: #5c1a1a; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .stat-item {
+            background: #0d1117;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #00d2ff;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #7b8ca3;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-item.success .stat-value { color: #2dd272; }
+        .stat-item.danger .stat-value { color: #f85149; }
+        .stat-item.warning .stat-value { color: #e3b341; }
+
+        .log-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #0d1117;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .log-container::-webkit-scrollbar { width: 6px; }
+        .log-container::-webkit-scrollbar-track { background: #0d1117; }
+        .log-container::-webkit-scrollbar-thumb { background: #2a3a4d; border-radius: 3px; }
+
+        .log-entry { padding: 2px 0; word-break: break-all; }
+        .log-entry.blocked { color: #f85149; }
+        .log-entry.success { color: #2dd272; }
+        .log-entry.approval { color: #e3b341; }
+
+        .memory-list {
+            list-style: none;
+        }
+
+        .memory-list li {
+            padding: 8px 12px;
+            background: #0d1117;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .memory-list .app-name {
+            color: #00d2ff;
+            font-weight: 600;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .last-action {
+            background: #0d1117;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+
+        .last-action .label { color: #7b8ca3; font-size: 12px; }
+        .last-action .value { color: #e0e6ed; margin-top: 4px; }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #2a3a4d;
+            border-top-color: #00d2ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; padding: 12px; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .header { padding: 16px; }
+            .header h1 { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>JARVIS Dashboard</h1>
+        <span id="statusBadge" class="status-badge status-offline">Connecting...</span>
+    </div>
+
+    <div class="container">
+        <!-- Command Input -->
+        <div class="card command-card">
+            <h2>Command Center</h2>
+            <div class="input-row">
+                <input type="text" id="cmdInput" placeholder="Enter a goal... (e.g., 'search for python docs')"
+                       onkeypress="if(event.key==='Enter') runCommand()">
+                <button class="btn btn-primary" id="runBtn" onclick="runCommand()">Execute</button>
+            </div>
+            <div id="lastResult" class="last-action" style="display:none; margin-top:12px;">
+                <div class="label">Last Result</div>
+                <div class="value" id="lastResultText"></div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="card">
+            <h2>Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-item success">
+                    <div class="stat-value" id="statCompleted">0</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+                <div class="stat-item danger">
+                    <div class="stat-value" id="statFailed">0</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+                <div class="stat-item warning">
+                    <div class="stat-value" id="statBlocked">0</div>
+                    <div class="stat-label">Blocked</div>
+                </div>
+            </div>
+            <div id="memoryInfo" class="last-action" style="margin-top:12px;">
+                <div class="label">Memory</div>
+                <div class="value" id="memoryText">Loading...</div>
+            </div>
+        </div>
+
+        <!-- RL Stats -->
+        <div class="card">
+            <h2>RL Agent</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="rlStates">0</div>
+                    <div class="stat-label">States</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="rlEntries">0</div>
+                    <div class="stat-label">Q-Entries</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="rlApps">0</div>
+                    <div class="stat-label">Apps</div>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-secondary" onclick="refreshAll()">Refresh</button>
+                <button class="btn btn-danger" onclick="clearMemory()">Clear Memory</button>
+            </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="card" style="grid-column: 1 / -1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h2 style="margin:0;">Activity Log</h2>
+                <button class="btn btn-secondary" onclick="clearLogs()">Clear Logs</button>
+            </div>
+            <div class="log-container" id="logContainer">
+                <div class="log-entry" style="color:#4a5568;">Waiting for activity...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = "http://127.0.0.1:5050";
+        let isOnline = false;
+
+        async function runCommand() {
+            const input = document.getElementById("cmdInput");
+            const btn = document.getElementById("runBtn");
+            const goal = input.value.trim();
+            if (!goal) return;
+
+            btn.disabled = true;
+            btn.innerHTML = 'Running<span class="loading"></span>';
+
+            try {
+                const res = await fetch(`${API}/run`, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({goal})
+                });
+                const data = await res.json();
+
+                const resultDiv = document.getElementById("lastResult");
+                const resultText = document.getElementById("lastResultText");
+                resultDiv.style.display = "block";
+
+                if (data.status === "blocked") {
+                    resultText.innerHTML = `<span style="color:#f85149">BLOCKED: ${data.reason}</span>`;
+                } else if (data.status === "error") {
+                    resultText.innerHTML = `<span style="color:#f85149">ERROR: ${data.error}</span>`;
+                } else {
+                    resultText.innerHTML = `<span style="color:#2dd272">${data.result || "OK"}</span>`;
+                }
+
+                input.value = "";
+                refreshAll();
+            } catch (e) {
+                console.error("Run failed:", e);
+                document.getElementById("lastResult").style.display = "block";
+                document.getElementById("lastResultText").innerHTML =
+                    '<span style="color:#f85149">Connection failed - is server running?</span>';
+            }
+
+            btn.disabled = false;
+            btn.textContent = "Execute";
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch(`${API}/status`);
+                const data = await res.json();
+
+                document.getElementById("statCompleted").textContent = data.goals_completed || 0;
+                document.getElementById("statFailed").textContent = data.goals_failed || 0;
+                document.getElementById("statBlocked").textContent = data.goals_blocked || 0;
+
+                const logContainer = document.getElementById("logContainer");
+                if (data.logs && data.logs.length > 0) {
+                    logContainer.innerHTML = data.logs.map(log => {
+                        let cls = "log-entry";
+                        if (log.includes("BLOCKED")) cls += " blocked";
+                        else if (log.includes("APPROVAL")) cls += " approval";
+                        else cls += " success";
+                        return `<div class="${cls}">${escapeHtml(log)}</div>`;
+                    }).join("");
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }
+
+                setOnline(true);
+            } catch (e) {
+                setOnline(false);
+            }
+        }
+
+        async function fetchMemory() {
+            try {
+                const res = await fetch(`${API}/memory`);
+                const data = await res.json();
+                document.getElementById("memoryText").textContent =
+                    `${data.total_elements || 0} elements across ${(data.apps || []).length} apps | ${data.interactions || 0} interactions`;
+                document.getElementById("rlApps").textContent = (data.apps || []).length;
+            } catch (e) {}
+        }
+
+        async function fetchRL() {
+            try {
+                const res = await fetch(`${API}/rl`);
+                const data = await res.json();
+                document.getElementById("rlStates").textContent = data.states || 0;
+                document.getElementById("rlEntries").textContent = data.total_entries || 0;
+            } catch (e) {}
+        }
+
+        async function clearMemory() {
+            if (!confirm("Clear all UI memory?")) return;
+            try {
+                await fetch(`${API}/memory/clear`, {method: "POST"});
+                refreshAll();
+            } catch (e) { console.error(e); }
+        }
+
+        async function clearLogs() {
+            try {
+                await fetch(`${API}/logs/clear`, {method: "POST"});
+                document.getElementById("logContainer").innerHTML =
+                    '<div class="log-entry" style="color:#4a5568;">Logs cleared.</div>';
+                refreshAll();
+            } catch (e) { console.error(e); }
+        }
+
+        function setOnline(online) {
+            isOnline = online;
+            const badge = document.getElementById("statusBadge");
+            if (online) {
+                badge.textContent = "Online";
+                badge.className = "status-badge status-online";
+            } else {
+                badge.textContent = "Offline";
+                badge.className = "status-badge status-offline";
+            }
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement("div");
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function refreshAll() {
+            fetchStatus();
+            fetchMemory();
+            fetchRL();
+        }
+
+        // Initial load + auto-refresh every 3 seconds
+        refreshAll();
+        setInterval(refreshAll, 3000);
+    </script>
+</body>
+</html>
